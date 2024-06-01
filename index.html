@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple 3D Game</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #score {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-family: Arial, sans-serif;
+      font-size: 24px;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
+  <script>
+    // Set up the scene, camera, and renderer
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb); // Set background color to sky blue
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Load the GLB model
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      'cube.glb',
+      function (gltf) {
+        scene.add(gltf.scene);
+      },
+      undefined,
+      function (error) {
+        console.error(error);
+      }
+    );
+
+    // Create a ground plane with texture
+    const textureLoader = new THREE.TextureLoader();
+    const groundTexture = textureLoader.load('ground_texture.png'); // Load ground texture
+    const groundGeometry = new THREE.PlaneGeometry(1000, 1000); // Increase ground size
+    const groundMaterial = new THREE.MeshBasicMaterial({ map: groundTexture }); // Use texture
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2; // Invert rotation to make it face up
+    scene.add(ground);
+
+    // Create an array to store coins
+    const coins = [];
+
+    // Create coins randomly placed on the ground
+    const numCoins = 100; // Adjust as needed
+    for (let i = 0; i < numCoins; i++) {
+      const coinGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+      const coinMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+      const coin = new THREE.Mesh(coinGeometry, coinMaterial);
+      coin.position.x = Math.random() * 1000 - 500; // Spread coins across the ground
+      coin.position.z = Math.random() * 1000 - 500; // Spread coins across the ground
+      coin.position.y = 0.5; // Lift the coin slightly above the ground
+      scene.add(coin);
+      coins.push(coin);
+    }
+
+    // Position the camera
+    camera.position.y = 5; // Set initial height of the camera
+    camera.position.z = -5; // Set initial distance from the cube
+
+    // Player movement controls
+    const moveSpeed = 0.1;
+    const keys = { W: 87, A: 65, S: 83, D: 68, SPACE: 32 };
+    const keyState = {};
+    const mouseSensitivity = 0.001;
+
+    // Event listeners
+    document.addEventListener('keydown', event => { keyState[event.keyCode] = true; });
+    document.addEventListener('keyup', event => { keyState[event.keyCode] = false; });
+    document.addEventListener('mousemove', event => {
+      camera.rotation.x -= event.movementY * mouseSensitivity;
+      camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+    });
+
+    // Score counter
+    let score = 0;
+    const scoreElement = document.getElementById('score');
+
+    // Render loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Player movement
+      if (keyState[keys.W] || keyState[keys.Z]) camera.translateZ(-moveSpeed);
+      if (keyState[keys.A]) camera.translateX(-moveSpeed);
+      if (keyState[keys.S]) camera.translateZ(moveSpeed);
+      if (keyState[keys.D]) camera.translateX(moveSpeed);
+      if (keyState[keys.SPACE] && camera.position.y === 5) camera.position.y += 2; // Jump
+
+      // Ensure the camera stays above the ground
+      camera.position.y = Math.max(camera.position.y, 5);
+
+      // Check for collisions with coins
+      coins.forEach((coin, index) => {
+        if (camera.position.distanceTo(coin.position) < 1) {
+          scene.remove(coin);
+          coins.splice(index, 1);
+          score += 10;
+          scoreElement.textContent = `Score: ${score}`;
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
